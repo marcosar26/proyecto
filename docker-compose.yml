@@ -1,0 +1,43 @@
+services:
+  mariadb_db:
+    image: mariadb:10
+    container_name: mariadb_db
+    ports:
+      - "3306:3306"
+    environment:
+      MARIADB_ROOT_PASSWORD: "toor"
+      MARIADB_DATABASE: "proyectodb"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost", "-p${MARIADB_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    image: eclipse-temurin:21-jre
+    container_name: backend
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./backend/ProyectoBackend-0.0.1-SNAPSHOT.jar:/opt/app/japp.jar
+    command: ["java", "-jar", "/opt/app/japp.jar"]
+    environment:
+      SPRING_DATASOURCE_URL: "jdbc:mariadb://mariadb_db:3306/proyectodb?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true"
+      SPRING_PROFILES_ACTIVE: "docker"
+    depends_on:
+      mariadb_db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    image: nginx
+    container_name: frontend
+    ports:
+      - "80:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - backend
+    restart: unless-stopped
